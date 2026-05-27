@@ -11,7 +11,8 @@ import {
 import { keccak256, toHex } from "viem";
 
 // PASTE YOUR DEPLOYED CONTRACT ADDRESS HERE
-const CONTRACT_ADDRESS = "0x23486f389e7f88c7ea7cf6cd1d9680bb74184f48" as `0x${string}`;
+const CONTRACT_ADDRESS =
+  "0x23486f389e7f88c7ea7cf6cd1d9680bb74184f48" as `0x${string}`;
 
 const CONTRACT_ABI = [
   {
@@ -76,13 +77,29 @@ export default function Home() {
   };
 
   const handleRegister = () => {
-    if (!photoHash) return;
-    writeContract({
-      address: CONTRACT_ADDRESS,
-      abi: CONTRACT_ABI,
-      functionName: "register",
-      args: [photoHash, description],
-    });
+    console.log("=== Register clicked ===");
+    console.log("photoHash:", photoHash);
+    console.log("description:", description);
+    console.log("CONTRACT_ADDRESS:", CONTRACT_ADDRESS);
+    console.log("isPending:", isPending);
+    console.log("isConfirming:", isConfirming);
+
+    if (!photoHash) {
+      console.log("ABORT: no photoHash");
+      return;
+    }
+
+    try {
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "register",
+        args: [photoHash, description],
+      });
+      console.log("writeContract called successfully");
+    } catch (err) {
+      console.error("writeContract threw:", err);
+    }
   };
 
   return (
