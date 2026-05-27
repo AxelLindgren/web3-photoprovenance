@@ -10,7 +10,7 @@ const config = getDefaultConfig({
   appName: 'Photo Provenance',
   projectId: 'a530508dcdc1d85c8e4bf3599a4c37e5',
   chains: [sepolia],
-  ssr: true,
+  ssr: false,
 });
 
 const queryClient = new QueryClient();
