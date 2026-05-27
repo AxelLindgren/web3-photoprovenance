@@ -1,65 +1,208 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import {
+  useAccount,
+  useWriteContract,
+  useReadContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
+import { keccak256, toHex } from "viem";
+
+// PASTE YOUR DEPLOYED CONTRACT ADDRESS HERE
+const CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS_HERE" as `0x${string}`;
+
+const CONTRACT_ABI = [
+  {
+    inputs: [
+      { name: "_photoHash", type: "bytes32" },
+      { name: "_description", type: "string" },
+    ],
+    name: "register",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "_photoHash", type: "bytes32" }],
+    name: "verify",
+    outputs: [
+      { name: "exists", type: "bool" },
+      { name: "registrant", type: "address" },
+      { name: "timestamp", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+async function hashFile(file: File): Promise<`0x${string}`> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  return keccak256(toHex(bytes));
+}
 
 export default function Home() {
+  const { isConnected } = useAccount();
+  const [mode, setMode] = useState<"register" | "verify">("register");
+  const [photoHash, setPhotoHash] = useState<`0x${string}` | null>(null);
+  const [description, setDescription] = useState("");
+  const [fileName, setFileName] = useState("");
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  const { data: verifyData, refetch: refetchVerify } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: "verify",
+    args: photoHash ? [photoHash] : undefined,
+    query: { enabled: false },
+  });
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const hash = await hashFile(file);
+    setPhotoHash(hash);
+    if (mode === "verify") {
+      setTimeout(() => refetchVerify(), 100);
+    }
+  };
+
+  const handleRegister = () => {
+    if (!photoHash) return;
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: CONTRACT_ABI,
+      functionName: "register",
+      args: [photoHash, description],
+    });
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-gray-950 text-gray-100 p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex justify-between items-center mb-12">
+          <h1 className="text-2xl font-bold">Photo Provenance</h1>
+          <ConnectButton />
+        </div>
+
+        <div className="flex gap-2 mb-8">
+          <button
+            onClick={() => {
+              setMode("register");
+              setPhotoHash(null);
+              setFileName("");
+            }}
+            className={`px-4 py-2 rounded ${mode === "register" ? "bg-blue-600" : "bg-gray-800"}`}
+          >
+            Register a photo
+          </button>
+          <button
+            onClick={() => {
+              setMode("verify");
+              setPhotoHash(null);
+              setFileName("");
+            }}
+            className={`px-4 py-2 rounded ${mode === "verify" ? "bg-blue-600" : "bg-gray-800"}`}
+          >
+            Verify a photo
+          </button>
+        </div>
+
+        {!isConnected && mode === "register" && (
+          <p className="text-yellow-400 mb-4">
+            Connect your wallet to register a photo.
           </p>
+        )}
+
+        <div className="bg-gray-900 rounded p-6 mb-4">
+          <label className="block mb-2 text-sm text-gray-400">
+            Select a photo
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFile}
+            className="block w-full text-sm text-gray-400"
+          />
+          {fileName && (
+            <p className="mt-2 text-sm text-gray-400">File: {fileName}</p>
+          )}
+          {photoHash && (
+            <p className="mt-2 text-xs text-gray-500 break-all">
+              Hash: {photoHash}
+            </p>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {mode === "register" && photoHash && isConnected && (
+          <div className="bg-gray-900 rounded p-6">
+            <label className="block mb-2 text-sm text-gray-400">
+              Description (optional)
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Sunset over Amsterdam, taken 2026-05-27"
+              className="w-full bg-gray-800 rounded px-3 py-2 mb-4"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <button
+              onClick={handleRegister}
+              disabled={isPending || isConfirming}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 px-4 py-2 rounded"
+            >
+              {isPending
+                ? "Confirm in wallet…"
+                : isConfirming
+                  ? "Confirming on-chain…"
+                  : "Register on-chain"}
+            </button>
+            {isSuccess && (
+              <p className="mt-4 text-green-400">
+                ✓ Registered! TX: {txHash?.slice(0, 10)}…
+              </p>
+            )}
+          </div>
+        )}
+
+        {mode === "verify" && photoHash && (
+          <div className="bg-gray-900 rounded p-6">
+            {verifyData && verifyData[0] ? (
+              <>
+                <p className="text-green-400 font-semibold mb-3">
+                  ✓ Photo is registered on-chain
+                </p>
+                <p className="text-sm text-gray-400">Registered by:</p>
+                <p className="text-sm break-all mb-3">{verifyData[1]}</p>
+                <p className="text-sm text-gray-400">At:</p>
+                <p className="text-sm mb-3">
+                  {new Date(Number(verifyData[2]) * 1000).toLocaleString()}
+                </p>
+                {verifyData[3] && (
+                  <>
+                    <p className="text-sm text-gray-400">Description:</p>
+                    <p className="text-sm">{verifyData[3]}</p>
+                  </>
+                )}
+              </>
+            ) : verifyData ? (
+              <p className="text-yellow-400">
+                This photo is not registered on-chain.
+              </p>
+            ) : (
+              <p className="text-gray-400">Checking…</p>
+            )}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
