@@ -15,3 +15,4 @@ authorship.
 3. **Verify anywhere** — anyone can re-hash a photo and check the contract. 
    Matching hash → cryptographic proof of when and by whom it was claimed.
 
+URL: photo-provenance-xyz.vercel.app
