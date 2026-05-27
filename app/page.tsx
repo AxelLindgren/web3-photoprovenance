@@ -11,7 +11,7 @@ import {
 import { keccak256, toHex } from "viem";
 
 // PASTE YOUR DEPLOYED CONTRACT ADDRESS HERE
-const CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS_HERE" as `0x${string}`;
+const CONTRACT_ADDRESS = "0x077b8f548d36f174985a1c6339cc50bbe1c92265" as `0x${string}`;
 
 const CONTRACT_ABI = [
   {
